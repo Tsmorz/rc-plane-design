@@ -88,6 +88,9 @@ class RibSpec:
     te_min_mm: float = 1.0  # trailing edge is cut back to at least this thickness
     spar_width_mm: float = 3.0  # square carbon tube outer width
     spar_clearance_mm: float = 0.2  # added to the spar hole diameter for glue
+    spar_web_mm: float = 2.0  # solid full-depth web each side of the spar hole
+    spar_collar_mm: float = 3.0  # sleeve standing off the rib face (spar engagement)
+    spar_collar_wall_mm: float = 1.2  # sleeve wall around the spar hole
     le_rod_mm: float = 1.0  # leading-edge carbon rod diameter (snap-in notch)
     min_web_mm: float = 1.5  # minimum material between holes and the skin
     min_hole_mm: float = 3.0  # pockets smaller than about this are left solid

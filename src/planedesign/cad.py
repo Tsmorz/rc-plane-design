@@ -5,6 +5,7 @@ extruded +z) so it prints lying on the bed. Features added on top of the bare ai
 
 - trailing edge cut back to `te_min_mm` so it is printable
 - square spar hole on the camber line (collinear across ribs, so a straight tube fits)
+- solid cap-to-cap web band through the spar, plus a square collar on one face
 - open slot through the nose for the LE carbon rod (snaps in from the front)
 - Warren-truss lightening (diagonal members inside a solid rim) fore and aft of the spar
 
@@ -145,33 +146,53 @@ def build_rib(r: Rib, spec: RibSpec):
     sx, sz = r.spar_center[0] * 1000, r.spar_center[1] * 1000
     hole_w = spec.spar_width_mm + spec.spar_clearance_mm
     th = math.radians(r.twist_deg)
-    # Square sides are level in the world, which is the rib frame rotated by +twist.
-    corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
-    hole_pts = [
-        (
-            sx + (cx * math.cos(th) - cz * math.sin(th)) * hole_w / 2,
-            sz + (cx * math.sin(th) + cz * math.cos(th)) * hole_w / 2,
-        )
-        for cx, cz in corners
-    ]
+
+    def square(w: float):
+        # Square sides are level in the world, which is the rib frame rotated by +twist.
+        corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+        return [
+            (
+                sx + (cx * math.cos(th) - cz * math.sin(th)) * w / 2,
+                sz + (cx * math.sin(th) + cz * math.cos(th)) * w / 2,
+            )
+            for cx, cz in corners
+        ]
+
+    hole_pts = square(hole_w)
     rod_r = spec.le_rod_mm / 2 + 0.1
     rod_x = spec.le_rod_mm / 2 + 0.2
 
     # --- truss lightening: nose bay ahead of the spar, then aft to the TE ---
-    boss = (
-        cq.Workplane("XY")
-        .center(sx, sz)
-        .circle(hole_w * math.sqrt(2) / 2 + spec.min_web_mm)
-        .extrude(t_rib)
-    )
+    # A solid band runs cap to cap through the spar, so spar bending and shear load
+    # the full rib depth instead of a thin ring hanging off narrow truss posts.
+    # Pockets are shrunk by half a member, so stop them that much short of the band.
+    band = max(p[0] - sx for p in hole_pts) + spec.spar_web_mm
+    gap = max(band - spec.truss_member_mm / 2, 0.0)
     x_front = rod_x + rod_r + spec.min_web_mm
     x_back = x_cut - spec.min_web_mm
-    for x0, x1 in ((x_front, sx), (sx, x_back)):
+    for x0, x1 in ((x_front, sx - gap), (sx + gap, x_back)):
         for p in _truss_pockets(cq, upper, lower, inset, x0, x1, spec):
-            rib = rib.cut(p.cut(boss))
+            rib = rib.cut(p)
+
+    # --- spar collar: sleeve on the top face, so the tube is held over more than
+    # one rib thickness (glue area, and the twist is set by a longer square) ----
+    if spec.spar_collar_mm > 0:
+        collar = (
+            cq.Workplane("XY")
+            .workplane(offset=t_rib)
+            .polyline(square(hole_w + 2 * spec.spar_collar_wall_mm))
+            .close()
+            .extrude(spec.spar_collar_mm)
+        )
+        rib = rib.union(collar)
 
     # --- square spar hole, rotated to the rib's twist -----------------------
-    rib = rib.cut(cq.Workplane("XY").polyline(hole_pts).close().extrude(t_rib))
+    rib = rib.cut(
+        cq.Workplane("XY")
+        .polyline(hole_pts)
+        .close()
+        .extrude(t_rib + spec.spar_collar_mm)
+    )
 
     # --- LE rod slot: rod-diameter channel from in front of the nose inward --
     rod_z = 0.5 * (_z(upper, rod_x) + _z(lower, rod_x))
@@ -217,8 +238,13 @@ def wing_assembly(d: Design, parts):
     centers = []
     for r, w in parts:
         sx, sz = r.spar_center[0] * 1000, r.spar_center[1] * 1000
-        # flat (x, z_airfoil, thickness) -> world (x, thickness, z_airfoil)
-        s = w.rotate((0, 0, 0), (1, 0, 0), 90).translate((0, r.y * 1000 + t_mm, 0))
+        # flat (x, z_airfoil, thickness) -> world (x, thickness, z_airfoil); mirrored
+        # first so the spar collar points outboard (clear of the root joint)
+        s = (
+            w.mirror("XY")
+            .rotate((0, 0, 0), (1, 0, 0), 90)
+            .translate((0, r.y * 1000, 0))
+        )
         s = s.rotate((sx, 0, sz), (sx, 1, sz), r.twist_deg)
         asm.add(s, name=f"rib_{r.index:02d}")
         centers.append((sx, r.y * 1000 + t_mm / 2, sz))
