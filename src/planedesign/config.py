@@ -19,6 +19,24 @@ TARGET_TAKEOFF_MASS_G = 225.0  # design target, leaves margin for build overshoo
 
 
 @dataclass
+class ControlSurfaceSpec:
+    """A trailing-edge control surface (aileron or elevator) on a `SurfaceSpec`.
+
+    The hinge sits at `1 - chord_fraction` of the local chord and runs straight between
+    `span_start` and `span_end`. Ailerons (`symmetric=False`) deflect differentially, so
+    left and right move opposite ways; the elevator (`symmetric=True`) moves as one.
+    """
+
+    name: str
+    chord_fraction: float  # control surface chord / local chord
+    span_start: float = 0.0  # inboard end, fraction of semi-span
+    span_end: float = 1.0  # outboard end, fraction of semi-span
+    symmetric: bool = True
+    max_deflection_deg: float = 25.0  # mechanical travel each way
+    hinge_gap_mm: float = 1.0  # gap cut across the hinge line for tape/film hinge
+
+
+@dataclass
 class SurfaceSpec:
     """A symmetric, tapered lifting surface (wing or horizontal tail)."""
 
@@ -33,6 +51,7 @@ class SurfaceSpec:
     root_incidence_deg: float = 0.0
     washout_deg: float = 0.0  # tip twist relative to root, positive = nose-down
     quarter_chord_sweep_deg: float = 0.0
+    control_surface: ControlSurfaceSpec | None = None
 
 
 @dataclass
@@ -78,6 +97,19 @@ class PowerItem:
 
 
 @dataclass
+class PrinterSpec:
+    """Build volume of the printer, for laying out and splitting print plates."""
+
+    bed_width_mm: float = 320.0
+    bed_depth_mm: float = 132.0
+    bed_height_mm: float = 154.0
+    plate_gap_mm: float = 6.0  # clearance between parts on a plate
+    # Tail surfaces are printed airfoils (Design.htail / vtail airfoil). The trailing edge is
+    # thickened to this, blended in linearly from the nose, so it survives printing.
+    tail_te_mm: float = 0.8
+
+
+@dataclass
 class RibSpec:
     """Printed-rib features for the CadQuery generator (all in mm).
 
@@ -109,6 +141,11 @@ class Design:
     components: list[Component]
     # Fuselage as (x, radius) stations, approximates pod + boom for drag
     fuselage_stations: list[tuple[float, float]] = field(default_factory=list)
+    # Only stations up to here are printed as the nose pod; aft of it the fuselage is a
+    # constant-diameter carbon tube boom (stock, not printed) running to the tail mount,
+    # matching the "boom" mass component below.
+    pod_end_x: float = 0.200
+    boom_od_mm: float = 6.0  # off-the-shelf carbon tube OD
     battery_name: str = "battery"  # component moved by the CG solver
     target_static_margin: float = 0.15  # fraction of MAC; trainer: 0.12-0.20
     battery_wh: float = 2 * 3.7 * 0.450  # 2S 450 mAh
@@ -121,6 +158,7 @@ class Design:
     propulsive_efficiency: float = 0.45  # motor x ESC x prop, small-plane estimate
     rib_spacing: float = 0.050  # wing rib pitch [m]
     rib: RibSpec = field(default_factory=RibSpec)
+    printer: PrinterSpec = field(default_factory=PrinterSpec)
     field_altitude_m: float = 500.0  # flying-site elevation, sets air density
     # AeroBuildup predicts ideal steady level flight on a perfect surface. Climbs, turns,
     # gusts, film scalloping between ribs and interference drag typically cost 2-3x more.
@@ -138,6 +176,17 @@ DESIGN = Design(
         dihedral_deg=3.0,
         root_incidence_deg=2.0,
         washout_deg=1.0,
+        # Aileron ends sit on rib stations (0.5 and 1.0 of the semi-span at the default
+        # 50 mm pitch): those two ribs stay whole as closeouts, the ribs between them
+        # are split at the hinge (see cad.build_control_ribs).
+        control_surface=ControlSurfaceSpec(
+            "aileron",
+            chord_fraction=0.28,
+            span_start=0.5,
+            span_end=1.0,
+            symmetric=False,
+            max_deflection_deg=20.0,
+        ),
     ),
     htail=SurfaceSpec(
         name="Horizontal Stabilizer",
@@ -147,6 +196,9 @@ DESIGN = Design(
         tip_chord=0.065,
         x_le_root=0.450,
         z_root=0.0,
+        control_surface=ControlSurfaceSpec(
+            "elevator", chord_fraction=0.35, symmetric=True, max_deflection_deg=25.0
+        ),
     ),
     vtail=FinSpec(
         airfoil="naca0006",

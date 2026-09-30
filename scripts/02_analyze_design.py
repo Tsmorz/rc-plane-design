@@ -104,6 +104,36 @@ def main():
         f"t real assumes {d.real_world_power_factor}x ideal power (climbs, turns, gusts, build drag)."
     )
 
+    # --- control authority ------------------------------------------------------
+    ecs, acs = d.htail.control_surface, d.wing.control_surface
+    if ecs or acs:
+        print("\n=== CONTROL AUTHORITY ===")
+    if ecs:
+        print(
+            f"elevator trim with the stab fixed at {d.htail.root_incidence_deg:+.1f} deg "
+            f"(travel +/-{ecs.max_deflection_deg:.0f} deg, + = trailing edge down)"
+        )
+        print(f"{'V m/s':>6}{'alpha':>7}{'elevator':>9}{'% travel':>9}")
+        for v in args.speeds:
+            if v < 1.2 * vs:
+                continue
+            try:
+                e = A.trim_elevator(d, v)
+            except RuntimeError:
+                print(f"{v:6.1f}  trim failed")
+                continue
+            print(
+                f"{v:6.1f}{e.alpha_deg:7.1f}{e.elevator_deg:9.1f}{e.authority_used * 100:8.0f}%"
+            )
+    if acs:
+        v_ref = max(1.2 * vs, 8.0)
+        print(
+            f"\naileron roll rate at {v_ref:.0f} m/s (steady state, upper bound, no adverse yaw):"
+        )
+        for frac in (0.5, 1.0):
+            da = frac * acs.max_deflection_deg
+            print(f"  {da:4.0f} deg  {A.roll_rate_dps(d, v_ref, da):5.0f} deg/s")
+
     # --- plots --------------------------------------------------------------
     if pts:
         v = onp.array([p.velocity for p in pts])

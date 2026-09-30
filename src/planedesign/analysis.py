@@ -114,3 +114,71 @@ def stall_speed(d: Design) -> float:
     rho = asb.Atmosphere(altitude=d.field_altitude_m).density()
     w = total_mass_g(d) / 1000 * G
     return float(np.sqrt(2 * w / (rho * wing_area(d) * cl_max(d))))
+
+
+@dataclass
+class ElevatorTrim:
+    """Elevator needed to hold level flight at one airspeed, stabilizer fixed."""
+
+    velocity: float
+    alpha_deg: float
+    elevator_deg: float  # positive = trailing edge down
+    authority_used: float  # |deflection| / mechanical travel
+
+
+def trim_elevator(d: Design, velocity: float) -> ElevatorTrim:
+    """Level flight with the stab fixed at `htail.root_incidence_deg`; solve alpha and elevator.
+
+    This is what the pilot actually flies: the stabilizer is built at one incidence and
+    the elevator supplies the rest of the trim across airspeed.
+    """
+    cs = d.htail.control_surface
+    if cs is None:
+        raise ValueError("htail has no control surface")
+    weight = total_mass_g(d) / 1000 * G
+    x_cg, z_cg = cg(d)
+
+    opti = asb.Opti()
+    alpha = opti.variable(init_guess=2.0, lower_bound=-6, upper_bound=14)
+    elev = opti.variable(init_guess=0.0, lower_bound=-30, upper_bound=30)
+    airplane = make_airplane(d, xyz_ref=(x_cg, 0, z_cg)).with_control_deflections(
+        {cs.name: elev}
+    )
+    res = asb.AeroBuildup(airplane, _op(d, velocity, alpha)).run()
+    opti.subject_to([res["L"] == weight, res["Cm"] == 0])
+    sol = opti.solve(verbose=False)
+    e = float(sol(elev))
+    return ElevatorTrim(velocity, float(sol(alpha)), e, abs(e) / cs.max_deflection_deg)
+
+
+def roll_rate_dps(
+    d: Design, velocity: float, deflection_deg: float | None = None
+) -> float:
+    """Steady-state roll rate [deg/s] for an aileron deflection (default: full travel).
+
+    Evaluated at the level-flight alpha for that speed. Balances the aileron rolling moment against roll damping: p = -Cl_da * da / Clp
+    scaled by 2V/b. Ignores adverse yaw and roll-up time, so it is an upper bound.
+    """
+    cs = d.wing.control_surface
+    if cs is None:
+        raise ValueError("wing has no control surface")
+    da = cs.max_deflection_deg if deflection_deg is None else deflection_deg
+    x_cg, z_cg = cg(d)
+    airplane = make_airplane(d, xyz_ref=(x_cg, 0, z_cg))
+    op = _op(d, velocity, trim(d, velocity).alpha_deg)  # level-flight alpha
+    cl_ail = float(
+        np.atleast_1d(
+            asb.AeroBuildup(airplane.with_control_deflections({cs.name: da}), op).run()[
+                "Cl"
+            ]
+        )[0]
+    )
+    clp = float(
+        np.atleast_1d(
+            asb.AeroBuildup(airplane, op).run_with_stability_derivatives(
+                alpha=False, beta=False, p=True, q=False, r=False
+            )["Clp"]
+        )[0]
+    )
+    p_hat = -cl_ail / clp  # p * b / (2V), radians
+    return abs(float(np.degrees(p_hat * 2 * velocity / d.wing.span)))

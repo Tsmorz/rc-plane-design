@@ -53,13 +53,40 @@ figures shipped in the config are estimates and the battery C rating is a placeh
 ## CAD export
 `task cad` needs the optional CadQuery extra (`uv sync --extra cad`) and writes to `outputs/cad/`:
 - `wing_half_assembly.step`: ribs at their span stations, twisted about the spar, plus the spar tube. Import into **Onshape**.
-- `print_plate.step` (and `.stl`): every rib flat on one plate. Drag the STEP straight into **Eiger** (it imports native STEP; the STL is a fallback) and set the material to Onyx.
+- `print_plate_NN.step` (and `.stl`): ribs packed onto one or more plates, each sized to fit inside your
+  printer's bed (`Design.printer` in `config.py`: `bed_width_mm` / `bed_depth_mm` / `bed_height_mm`). Ribs are
+  packed shelf-style and a plate rolls over to a new one once it runs out of depth, so a small bed just means
+  more plates, not a failed export. Drag each plate's STEP straight into **Eiger** (it imports native STEP;
+  the STL is a fallback) and set the material to Onyx.
 - `rib_XX.step` / `.stl`: individual ribs.
+- `fuselage_pod.step` / `.stl`: the nose pod only — a loft through `fuselage_stations` up to `Design.pod_end_x`
+  (default 200 mm aft of the wing LE). Aft of that, the fuselage is a straight, constant-diameter carbon tube
+  boom running to the tail mount: stock tube, cut to length, not printed or exported. `task cad` prints the
+  length and OD to cut (`Design.boom_od_mm`); tune `pod_end_x` if you want more or less of the nose printed.
+- `htail.step` / `.stl`, `elevator.step` / `.stl`, `vtail.step` / `.stl`: the tail surfaces as **airfoil solids**
+  (the `Design.htail` / `Design.vtail` airfoil, NACA 0006, lofted root to tip with the config planform). The
+  trailing edge is thickened to `Design.printer.tail_te_mm` so it prints. The stabilizer and elevator are separate
+  solids with `hinge_gap_mm` between them (tape/film hinge). **These are solid outer molds and heavy in plastic
+  (the tail set is about 90 cm^3, roughly 110 g of Onyx).** The 11 g tail budget assumes foam or a hollow/foaming
+  print, so use them as a foam-core template or print in a lightweight mode, then weigh and set `measured_g`.
+- `aileron_rib_NN.step` / `.stl`: the aft piece of each rib inside the aileron span, with its own carbon-rod nose
+  notch and truss. The fixed rib stops at the hinge line, so the film hinge crosses the gap. The two ribs at the
+  ends of the aileron span stay whole as closeouts (slit the film beside them).
+
+- `full_aircraft_assembly.step`: both wing halves, the pod, the boom (as a plain tube), and both tail
+  surfaces, positioned from `config.py`, in one file. Open it in **FreeCAD** (`brew install --cask freecad`,
+  free) to eyeball the whole plane locally — File > Open, no import step needed, STEP support is built in.
 
 Rib features and printer limits (thickness, spar width, minimum web, truss) live in `RibSpec` in `config.py`.
 The spar is a **square carbon tube**. Each rib's square hole is rotated by that rib's twist, so sliding the ribs
 onto the straight tube sets incidence and washout, and they cannot rotate about it. Set the spanwise spacing
 with marks or spacers at the rib pitch.
+
+## Control surfaces
+Defined by `ControlSurfaceSpec` in `config.py` and attached to `Design.wing` (aileron: 28 % chord, outboard half
+span, differential) and `Design.htail` (elevator: 35 % chord, full span). AeroSandbox, the analysis and the CAD all
+read the same numbers. Keep the aileron span ends on rib stations (a test checks this). There is no rudder: this is
+a 3-channel plane (aileron, elevator, throttle), matching the servos in the budget.
 
 ## Reading the results
 
@@ -67,6 +94,9 @@ with marks or spacers at the rib pitch.
   nose-heavy. Rather than adding ballast, fix it with `--solve-cg` (moves the battery).
 - **Tail incidence**: `trim()` solves stab incidence and alpha for L = W and Cm = 0. Build the stab at
   the value for your cruise speed; the spread across speeds is what the elevator must supply.
+- **Control authority**: `task analyze` prints the elevator deflection needed to trim each speed with the stab
+  fixed, and the steady-state aileron roll rate. Tests guard both (elevator < 60 % of travel, roll rate
+  60-360 deg/s). The roll rate is an upper bound (no adverse yaw) and flattens near stall as the tip stalls.
 - **Flight time**: "ideal" is steady level flight on a perfect surface. "Real" applies
   `real_world_power_factor` (default 2.5x). Trust the real column, then calibrate the factor from
   your first flight logs.

@@ -8,17 +8,19 @@ import aerosandbox.numpy as np
 from .config import Design, FinSpec, SurfaceSpec
 
 
-def surface_xsecs(
-    s: SurfaceSpec, incidence_offset=0.0, n_stations: int = 2
-) -> list[asb.WingXSec]:
+def surface_xsecs(s: SurfaceSpec, incidence_offset=0.0) -> list[asb.WingXSec]:
     """Cross-sections for a tapered surface with constant quarter-chord sweep.
 
+    A section is added at each end of the control surface (if any), which AeroSandbox
+    needs to know where the flap starts and stops; the planform is unchanged.
     `incidence_offset` may be an Opti variable (used to trim the tail).
     """
     af = asb.Airfoil(s.airfoil)
     semi = s.span / 2
+    cs = s.control_surface
+    etas = sorted({0.0, 1.0, *((cs.span_start, cs.span_end) if cs else ())})
     xsecs = []
-    for eta in np.linspace(0, 1, n_stations):
+    for eta in etas:
         chord = s.root_chord + eta * (s.tip_chord - s.root_chord)
         y = eta * semi
         # keep the quarter-chord line at the requested sweep
@@ -29,6 +31,16 @@ def surface_xsecs(
                 chord=chord,
                 twist=s.root_incidence_deg - eta * s.washout_deg + incidence_offset,
                 airfoil=af,
+                # the flap runs from this section to the next one outboard
+                control_surfaces=[
+                    asb.ControlSurface(
+                        name=cs.name,
+                        symmetric=cs.symmetric,
+                        hinge_point=1 - cs.chord_fraction,
+                    )
+                ]
+                if cs and eta == cs.span_start
+                else [],
             )
         )
     return xsecs
