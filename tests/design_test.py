@@ -1,9 +1,11 @@
 """Guardrails: run `pytest` after every config change."""
 
+from dataclasses import replace
+
 import numpy as onp
 import pytest
 
-from planedesign import DESIGN
+from planedesign import DESIGN, budget
 from planedesign import analysis as A
 from planedesign import mass as M
 from planedesign.config import MAX_TAKEOFF_MASS_G, TARGET_TAKEOFF_MASS_G
@@ -40,3 +42,15 @@ def test_spar_holes_are_collinear():
         v = onp.array([r.spar_center[k] for r in ribs])
         residual = v - onp.polyval(onp.polyfit(y, v, 1), y)
         assert onp.max(onp.abs(residual)) < 1e-4  # 0.1 mm
+
+
+def test_peak_current_within_battery_limit():
+    """Worst-case simultaneous draw must not exceed the pack's C rating."""
+    s = budget.power_summary(DESIGN)
+    assert s.peak_current_a <= s.max_current_a
+
+
+def test_measured_mass_overrides_estimate():
+    c = replace(DESIGN.components[0], measured_g=DESIGN.components[0].mass_g + 5)
+    d = replace(DESIGN, components=[c, *DESIGN.components[1:]])
+    assert abs(M.total_mass_g(d) - M.total_mass_g(DESIGN) - 5) < 1e-9

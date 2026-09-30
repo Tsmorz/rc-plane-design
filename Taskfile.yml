@@ -28,6 +28,16 @@ tasks:
     cmds:
       - uv run python scripts/03_export_ribs.py
 
+  budget:
+    desc: Print the mass and power budget and update docs/budget.md
+    cmds:
+      - uv run python scripts/04_budget.py
+
+  cad:
+    desc: Build printable ribs with CadQuery and export STEP/STL to outputs/cad/
+    cmds:
+      - uv run --extra cad python scripts/05_build_cad.py
+
   test:
     desc: Run the test suite with coverage
     cmds:

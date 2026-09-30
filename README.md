@@ -22,6 +22,8 @@ task airfoils                    # candidate airfoils at your real Re
 task analyze                     # mass budget, CG, static margin, trim, power
 task analyze -- --solve-cg       # place the battery for the target static margin
 task ribs                        # per-rib outlines + spar holes -> outputs/ribs/
+task budget                      # mass + power budget -> docs/budget.md
+task cad                         # printable ribs, print plate, assembly -> outputs/cad/
 task test                        # guardrails: mass limit, static margin, stall speed, straight spar
 ```
 Outputs (plots, rib CSVs) land in `outputs/` (git-ignored).
@@ -35,10 +37,29 @@ src/planedesign/
   analysis.py   neutral point, static margin, trim via asb.Opti, stall, power/flight time
   airfoils.py   NeuralFoil polars and summaries
   ribs.py       rib stations in each rib's flat 2D frame, CSV export
+  budget.py     mass (planned vs measured) and power budget, markdown snapshot
+  cad.py        CadQuery rib generator: square spar hole, LE slot, truss lightening
 scripts/        airfoil comparison, design analysis, rib export
 tests/          design guardrails
 docs/           images used in this README
 ```
+
+## Budget
+Edit `src/planedesign/config.py`: set `measured_g` on a component once it is weighed, and update
+`power_items` as you measure real current draw. `task budget` prints both budgets and rewrites
+[docs/budget.md](docs/budget.md); commit it to keep a history as the build progresses. The power
+figures shipped in the config are estimates and the battery C rating is a placeholder.
+
+## CAD export
+`task cad` needs the optional CadQuery extra (`uv sync --extra cad`) and writes to `outputs/cad/`:
+- `wing_half_assembly.step`: ribs at their span stations, twisted about the spar, plus the spar tube. Import into **Onshape**.
+- `print_plate.step` (and `.stl`): every rib flat on one plate. Drag the STEP straight into **Eiger** (it imports native STEP; the STL is a fallback) and set the material to Onyx.
+- `rib_XX.step` / `.stl`: individual ribs.
+
+Rib features and printer limits (thickness, spar width, minimum web, truss) live in `RibSpec` in `config.py`.
+The spar is a **square carbon tube**. Each rib's square hole is rotated by that rib's twist, so sliding the ribs
+onto the straight tube sets incidence and washout, and they cannot rotate about it. Set the spanwise spacing
+with marks or spacers at the rib pitch.
 
 ## Reading the results
 
@@ -59,8 +80,6 @@ with ballasted glide tests before the first powered flight, and treat logged fli
 
 ## Next steps
 
-- CadQuery rib generator: read `outputs/ribs/*.csv`, add lightening holes, LE-rod notch, spar hole
-  clearance, and jig tabs from `twist_deg`, then export STEP for Eiger.
 - Feed measured part masses back into `config.py` as you build (use a 0.1 g scale).
 
 ## Adding to the repo

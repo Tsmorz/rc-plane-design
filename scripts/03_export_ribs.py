@@ -4,7 +4,7 @@
 
 Writes outputs/ribs/rib_XX.csv (outline in mm) and rib_summary.csv. These feed the
 CadQuery rib generator (next step), which adds lightening holes, LE-rod notch,
-spar hole clearance, and jig tabs from twist_deg.
+and a spar hole rotated by twist_deg.
 """
 
 from pathlib import Path

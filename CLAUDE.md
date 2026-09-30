@@ -18,6 +18,8 @@ task airfoils             # compare candidate airfoils
 task analyze              # mass budget, CG, static margin, trim, power
 task analyze -- --solve-cg  # solve battery position for the target static margin
 task ribs                 # export rib CSVs to outputs/ribs/
+task budget               # mass + power budget, rewrites docs/budget.md
+task cad                  # CadQuery ribs -> outputs/cad/ (needs `uv sync --extra cad`)
 task format               # ruff format + ruff check --fix + mypy
 task test                 # pytest with coverage over src/planedesign
 task ci                   # format + test (local CI mirror)
@@ -36,6 +38,8 @@ uv run pytest tests/design_test.py -v
   - `geometry.py` — config -> `asb.Airplane`.
   - `mass.py` — mass budget, CG, battery-position solver.
   - `analysis.py` — neutral point, static margin, trim, stall, power/flight time.
+  - `budget.py` — planned vs measured mass, power items, battery checks, markdown snapshot.
+  - `cad.py` — CadQuery rib generator (STEP/STL, print plate, assembly); config in `RibSpec`.
   - `airfoils.py`, `ribs.py` — NeuralFoil polars; rib outlines and CSV export.
 - `scripts/` — numbered CLI entrypoints (`01_compare_airfoils.py`, `02_analyze_design.py`, `03_export_ribs.py`).
 - `tests/` — design guardrails (mass limit, static margin, stall speed, straight spar). Test files end in `_test.py`.

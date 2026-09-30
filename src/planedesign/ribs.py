@@ -1,8 +1,8 @@
 """Rib stations for one wing half, in each rib's own flat 2D frame.
 
 Ribs are flat printed parts, so outlines are exported *unrotated*: chord along +x,
-leading edge at the origin. Incidence/washout is applied at build time by jig tabs
-(generated in the CadQuery step from `twist_deg` and `spar_center`), and dihedral
+leading edge at the origin. Incidence/washout is applied at build time by the square spar
+(the CadQuery step rotates each rib's spar hole by `twist_deg` about `spar_center`), and dihedral
 by joining the two wing halves at the root.
 
 The spar hole sits on the camber line at `spar_x_frac` of chord. Because every rib

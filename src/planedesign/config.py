@@ -57,6 +57,43 @@ class Component:
     x: float  # CG location [m]
     z: float = 0.0
     note: str = ""
+    # Set this once the part is on the scale (0.1 g resolution); the budget, CG and
+    # tests then use it in place of the estimate in `mass_g`.
+    measured_g: float | None = None
+
+    @property
+    def actual_g(self) -> float:
+        """Measured mass if weighed, otherwise the estimate."""
+        return self.mass_g if self.measured_g is None else self.measured_g
+
+
+@dataclass
+class PowerItem:
+    """An electrical load in the power budget (all values at the battery, in watts)."""
+
+    name: str
+    typical_w: float  # average draw in steady cruise
+    peak_w: float  # worst-case simultaneous draw (full throttle, servo stall, radio TX)
+    note: str = ""
+
+
+@dataclass
+class RibSpec:
+    """Printed-rib features for the CadQuery generator (all in mm).
+
+    Defaults are conservative Onyx-on-Markforged values; tune them to your printer.
+    """
+
+    thickness_mm: float = 1.2  # extrusion thickness of each flat rib
+    te_min_mm: float = 1.0  # trailing edge is cut back to at least this thickness
+    spar_width_mm: float = 3.0  # square carbon tube outer width
+    spar_clearance_mm: float = 0.2  # added to the spar hole diameter for glue
+    le_rod_mm: float = 1.0  # leading-edge carbon rod diameter (snap-in notch)
+    min_web_mm: float = 1.5  # minimum material between holes and the skin
+    min_hole_mm: float = 3.0  # pockets smaller than about this are left solid
+    truss_member_mm: float = 1.5  # width of truss diagonals and posts
+    truss_bay_ratio: float = 1.2  # bay length / local thickness; sets diagonal angle
+    density_g_cc: float = 1.2  # Onyx, approximate; check the datasheet
 
 
 @dataclass
@@ -72,8 +109,15 @@ class Design:
     battery_name: str = "battery"  # component moved by the CG solver
     target_static_margin: float = 0.15  # fraction of MAC; trainer: 0.12-0.20
     battery_wh: float = 2 * 3.7 * 0.450  # 2S 450 mAh
+    battery_nominal_v: float = 7.4  # 2S
+    battery_c_rating: float = 45.0  # PLACEHOLDER: use your pack's continuous C rating
+    battery_usable_fraction: float = 0.8  # land with 20 % left, protects the pack
+    # Electrical loads. Values are estimates: replace with bench measurements (a USB
+    # power meter on the bench supply, or logged flight current) as you get them.
+    power_items: list[PowerItem] = field(default_factory=list)
     propulsive_efficiency: float = 0.45  # motor x ESC x prop, small-plane estimate
     rib_spacing: float = 0.050  # wing rib pitch [m]
+    rib: RibSpec = field(default_factory=RibSpec)
     field_altitude_m: float = 500.0  # flying-site elevation, sets air density
     # AeroBuildup predicts ideal steady level flight on a perfect surface. Climbs, turns,
     # gusts, film scalloping between ribs and interference drag typically cost 2-3x more.
@@ -114,6 +158,21 @@ DESIGN = Design(
         (0.120, 0.020),
         (0.200, 0.008),
         (0.550, 0.004),  # end of tail boom
+    ],
+    power_items=[
+        PowerItem(
+            "motor", 20.0, 90.0, "cruise from 02_analyze_design; peak = WOT static"
+        ),
+        PowerItem(
+            "flight_controller", 0.6, 1.2, "ESP32-S3 + IMU/mag/baro, WiFi TX spikes"
+        ),
+        PowerItem("gps", 0.15, 0.25),
+        PowerItem("receiver_bec", 0.3, 0.5, "BEC + receiver losses"),
+        PowerItem(
+            "servos_aileron", 0.4, 5.0, "2x 4.5 g servos, peak = both moving hard"
+        ),
+        PowerItem("servo_elevator", 0.2, 2.5),
+        PowerItem("esc", 0.1, 0.5, "quiescent + switching losses"),
     ],
     components=[
         Component("motor_prop", 33.0, -0.125, note="DX2205 2300KV + 5in prop"),
