@@ -1,4 +1,5 @@
 """Stability, trim, and performance with AeroSandbox's AeroBuildup (NeuralFoil inside)."""
+
 from __future__ import annotations
 
 import warnings
@@ -18,7 +19,9 @@ G = 9.81
 
 def _op(d: Design, velocity, alpha) -> asb.OperatingPoint:
     return asb.OperatingPoint(
-        atmosphere=asb.Atmosphere(altitude=d.field_altitude_m), velocity=velocity, alpha=alpha
+        atmosphere=asb.Atmosphere(altitude=d.field_altitude_m),
+        velocity=velocity,
+        alpha=alpha,
     )
 
 
@@ -45,6 +48,8 @@ def static_margin(d: Design) -> float:
 
 @dataclass
 class TrimPoint:
+    """Trimmed flight condition at one airspeed."""
+
     velocity: float
     alpha_deg: float
     tail_incidence_deg: float
@@ -52,8 +57,8 @@ class TrimPoint:
     CD: float
     L_over_D: float
     drag_N: float
-    electrical_power_W: float      # ideal level flight
-    flight_time_min: float         # ideal level flight
+    electrical_power_W: float  # ideal level flight
+    flight_time_min: float  # ideal level flight
     realistic_flight_time_min: float
 
 
@@ -84,8 +89,10 @@ def trim(d: Design, velocity: float, usable_battery_fraction: float = 0.8) -> Tr
         drag_N=drag,
         electrical_power_W=p_elec,
         flight_time_min=d.battery_wh * usable_battery_fraction / p_elec * 60,
-        realistic_flight_time_min=d.battery_wh * usable_battery_fraction
-        / (p_elec * d.real_world_power_factor) * 60,
+        realistic_flight_time_min=d.battery_wh
+        * usable_battery_fraction
+        / (p_elec * d.real_world_power_factor)
+        * 60,
     )
 
 
@@ -95,7 +102,9 @@ def cl_max(d: Design, velocity: float = 7.0) -> float:
     airplane = make_airplane(d, xyz_ref=(x_cg, 0, z_cg))
     alphas = np.linspace(0, 18, 37)
     cls = [
-        float(np.atleast_1d(asb.AeroBuildup(airplane, _op(d, velocity, a)).run()["CL"])[0])
+        float(
+            np.atleast_1d(asb.AeroBuildup(airplane, _op(d, velocity, a)).run()["CL"])[0]
+        )
         for a in alphas
     ]
     return max(cls)

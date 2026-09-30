@@ -1,4 +1,5 @@
 """Mass budget and CG."""
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -40,8 +41,12 @@ def budget_table(d: Design) -> str:
         lines.append(f"{c.name:<20}{c.mass_g:7.1f}{c.x * 1000:9.0f}  {c.note}")
     lines.append("-" * 60)
     lines.append(f"{'TOTAL':<20}{m:7.1f}")
-    lines.append(f"margin to target ({TARGET_TAKEOFF_MASS_G:.0f} g): {TARGET_TAKEOFF_MASS_G - m:+.1f} g")
-    lines.append(f"margin to legal  ({MAX_TAKEOFF_MASS_G:.0f} g): {MAX_TAKEOFF_MASS_G - m:+.1f} g")
+    lines.append(
+        f"margin to target ({TARGET_TAKEOFF_MASS_G:.0f} g): {TARGET_TAKEOFF_MASS_G - m:+.1f} g"
+    )
+    lines.append(
+        f"margin to legal  ({MAX_TAKEOFF_MASS_G:.0f} g): {MAX_TAKEOFF_MASS_G - m:+.1f} g"
+    )
     return "\n".join(lines)
 
 

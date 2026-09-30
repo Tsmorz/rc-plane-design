@@ -1,4 +1,5 @@
 """2D airfoil comparison at the plane's low Reynolds numbers, using NeuralFoil."""
+
 from __future__ import annotations
 
 import aerosandbox as asb
@@ -14,8 +15,13 @@ def polar(name: str, re: float, alphas=None, model_size: str = "large") -> dict:
     alphas = np.linspace(-4, 14, 73) if alphas is None else alphas
     af = asb.Airfoil(name)
     r = af.get_aero_from_neuralfoil(alpha=alphas, Re=re, model_size=model_size)
-    return {"alpha": alphas, "CL": r["CL"], "CD": r["CD"], "CM": r["CM"],
-            "confidence": r["analysis_confidence"]}
+    return {
+        "alpha": alphas,
+        "CL": r["CL"],
+        "CD": r["CD"],
+        "CM": r["CM"],
+        "confidence": r["analysis_confidence"],
+    }
 
 
 def summary(name: str, re: float) -> dict:

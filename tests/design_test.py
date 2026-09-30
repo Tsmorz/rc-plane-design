@@ -1,4 +1,5 @@
 """Guardrails: run `pytest` after every config change."""
+
 import numpy as onp
 import pytest
 

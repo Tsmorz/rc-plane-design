@@ -1,24 +1,98 @@
 [project]
 name = "planedesign"
 version = "0.1.0"
-description = "Sub-250 g ESP32-S3 RC plane: aero design, mass/CG budget, and rib export"
-requires-python = ">=3.10"
+description = "Sub-250 g ESP32-S3 RC plane: aero design, mass/CG budget, and rib export."
+authors = [{ name = "Tsmorz", email = "tonysmoragiewicz@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "aerosandbox>=4.2",
-    "matplotlib>=3.7",
+    "matplotlib>=3.9,<4",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
-cad = ["cadquery>=2.4"]   # for the rib generator (next step)
+cad = ["cadquery>=2.4"]  # rib generator (next step)
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.3,<9",
+    "pytest-cov>=6.0.0,<7",
+    "pre-commit>=4.0.0,<5",
+    "ruff==0.9.10",
+    "mypy==1.15.0",
+]
 
 [build-system]
-requires = ["setuptools>=64"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/planedesign"]
+
+[tool.ruff]
+line-length = 88
+fix = true
+lint.select = [
+    "E",
+    "F",
+    "W",
+    "C90",
+    "I",
+    "N",
+    "D",
+    "UP",
+    "B",
+    "S",
+    "YTT",
+    "Q",
+    "PL",
+    "RUF",
+    "T20",
+    "F841",
+]
+lint.ignore = [
+    "D203",
+    "D213",
+    "E501",
+    "N803",
+    "N806",
+    "D415",
+    "S101",
+    "E203",
+    "E731",
+    "D107",
+    "PLR2004",
+    "PLR0912",
+    "PLR0913",
+    "PLR0915",
+    "C901",
+    "S607",
+    "S605",
+    "S603",
+    "T201",
+    "D103",
+    "N812",
+    "N815",
+]
+
+lint.per-file-ignores = { "tests/*" = ["D104"] }
+
+[tool.lint.isort]
+known-first-party = ["planedesign"]
+combine-as-imports = true
+
+[tool.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+python_files = ["*_test.py"]
 filterwarnings = ["ignore::FutureWarning"]
+
+[tool.mypy]
+ignore_missing_imports = true

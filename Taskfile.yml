@@ -1,0 +1,59 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  init:
+    desc: Install dependencies and create the virtual environment
+    cmds:
+      - uv sync
+      - uv run pre-commit install
+      - echo "Created virtual environment"
+
+  airfoils:
+    desc: Compare candidate airfoils at the design Reynolds number
+    cmds:
+      - uv run python scripts/01_compare_airfoils.py
+
+  analyze:
+    desc: "Mass budget, CG, static margin, trim, power; pass args with: task analyze -- --solve-cg"
+    cmds:
+      - uv run python scripts/02_analyze_design.py {{.CLI_ARGS}}
+
+  ribs:
+    desc: Export per-rib outlines and spar holes to outputs/ribs/
+    cmds:
+      - uv run python scripts/03_export_ribs.py
+
+  test:
+    desc: Run the test suite with coverage
+    cmds:
+      - uv run pytest --cov=src/planedesign --cov-report=term-missing --no-cov-on-fail
+
+  format:
+    desc: Format, lint, and type-check the code
+    cmds:
+      - uv run ruff format
+      - uv run ruff check --fix
+      - uv run mypy src/planedesign/ tests/ scripts/ --ignore-missing-imports
+
+  ci:
+    desc: Run the full CI suite locally (format + test)
+    cmds:
+      - task: format
+      - task: test
+
+  clean:
+    desc: Remove the virtual environment, caches, and build artifacts
+    cmds:
+      - rm -rf .venv
+      - rm -rf .mypy_cache
+      - rm -rf .pytest_cache
+      - rm -rf .ruff_cache
+      - rm -rf build/
+      - rm -rf dist/
+      - find . -name ".coverage*" -delete
+      - find . -name "__pycache__" -exec rm -r {} +

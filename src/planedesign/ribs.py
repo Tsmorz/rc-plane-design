@@ -9,6 +9,7 @@ The spar hole sits on the camber line at `spar_x_frac` of chord. Because every r
 is the same airfoil scaled linearly with span, those points lie on a straight line,
 so a straight carbon tube passes through all of them.
 """
+
 from __future__ import annotations
 
 import csv
@@ -23,11 +24,13 @@ from .config import Design
 
 @dataclass
 class Rib:
+    """One rib: span station plus its outline in the rib's flat 2D frame."""
+
     index: int
-    y: float                    # span station from root [m]
-    chord: float                # [m]
-    twist_deg: float            # incidence at this station (root incidence - washout share)
-    outline: np.ndarray         # (N, 2) airfoil coords [m], rib-local frame
+    y: float  # span station from root [m]
+    chord: float  # [m]
+    twist_deg: float  # incidence at this station (root incidence - washout share)
+    outline: np.ndarray  # (N, 2) airfoil coords [m], rib-local frame
     spar_center: tuple[float, float]
 
 
@@ -41,14 +44,16 @@ def rib_stations(d: Design, spar_x_frac: float = 0.25) -> list[Rib]:
         eta = y / semi
         chord = w.root_chord + eta * (w.tip_chord - w.root_chord)
         spar_z = float(af.local_camber(x_over_c=spar_x_frac)) * chord
-        ribs.append(Rib(
-            index=i,
-            y=float(y),
-            chord=float(chord),
-            twist_deg=float(w.root_incidence_deg - eta * w.washout_deg),
-            outline=af.coordinates * chord,
-            spar_center=(spar_x_frac * chord, spar_z),
-        ))
+        ribs.append(
+            Rib(
+                index=i,
+                y=float(y),
+                chord=float(chord),
+                twist_deg=float(w.root_incidence_deg - eta * w.washout_deg),
+                outline=af.coordinates * chord,
+                spar_center=(spar_x_frac * chord, spar_z),
+            )
+        )
     return ribs
 
 
@@ -57,10 +62,35 @@ def export_csv(ribs: list[Rib], out_dir: Path) -> Path:
     summary = out_dir / "rib_summary.csv"
     with summary.open("w", newline="") as f:
         wr = csv.writer(f)
-        wr.writerow(["rib", "y_mm", "chord_mm", "twist_deg", "spar_x_mm", "spar_z_mm", "outline_file"])
+        wr.writerow(
+            [
+                "rib",
+                "y_mm",
+                "chord_mm",
+                "twist_deg",
+                "spar_x_mm",
+                "spar_z_mm",
+                "outline_file",
+            ]
+        )
         for r in ribs:
             name = f"rib_{r.index:02d}.csv"
-            np.savetxt(out_dir / name, r.outline * 1000, delimiter=",", header="x_mm,z_mm", comments="")
-            wr.writerow([r.index, f"{r.y * 1000:.1f}", f"{r.chord * 1000:.1f}", f"{r.twist_deg:.2f}",
-                         f"{r.spar_center[0] * 1000:.2f}", f"{r.spar_center[1] * 1000:.2f}", name])
+            np.savetxt(
+                out_dir / name,
+                r.outline * 1000,
+                delimiter=",",
+                header="x_mm,z_mm",
+                comments="",
+            )
+            wr.writerow(
+                [
+                    r.index,
+                    f"{r.y * 1000:.1f}",
+                    f"{r.chord * 1000:.1f}",
+                    f"{r.twist_deg:.2f}",
+                    f"{r.spar_center[0] * 1000:.2f}",
+                    f"{r.spar_center[1] * 1000:.2f}",
+                    name,
+                ]
+            )
     return summary
